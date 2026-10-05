@@ -1,0 +1,250 @@
+import sqlite3
+from datetime import date
+
+import gradio as gr
+
+from database import conn
+from analytics import (
+    get_customers, get_products, get_orders, get_payments,
+    dashboard_metrics, monthly_revenue, top_products,
+    customer_ranking, sales_chart
+)
+
+
+def add_customer(name, email, city):
+    if not name.strip():
+        return "Please enter customer name.", get_customers()
+
+    try:
+        conn.execute(
+            """INSERT INTO customers(name,email,city,signup_date)
+               VALUES (?,?,?,?)""",
+            (name.strip(), email.strip(), city.strip(), str(date.today()))
+        )
+        conn.commit()
+        return "Customer added successfully!", get_customers()
+    except sqlite3.IntegrityError:
+        return "Email already exists.", get_customers()
+
+
+def add_product(product_name, category, price, stock):
+    if not product_name.strip():
+        return "Please enter product name.", get_products()
+
+    try:
+        price = float(price)
+        stock = int(stock)
+
+        if price < 0 or stock < 0:
+            return "Price and stock must be positive.", get_products()
+
+        conn.execute(
+            """INSERT INTO products(product_name,category,price,stock)
+               VALUES (?,?,?,?)""",
+            (product_name.strip(), category.strip(), price, stock)
+        )
+        conn.commit()
+        return "Product added successfully!", get_products()
+    except (ValueError, TypeError):
+        return "Enter valid price and stock values.", get_products()
+
+
+def customer_choices():
+    df = get_customers()
+    return [f"{r.customer_id} - {r.name}" for _, r in df.iterrows()]
+
+
+def product_choices():
+    df = get_products()
+    return [
+        f"{r.product_id} - {r.product_name} (Stock: {r.stock})"
+        for _, r in df.iterrows()
+    ]
+
+
+def refresh_choices():
+    return (
+        gr.update(choices=customer_choices()),
+        gr.update(choices=product_choices())
+    )
+
+
+def place_order(customer_value, product_value, quantity):
+    if not customer_value or not product_value:
+        return "Select customer and product.", get_orders(), get_products()
+
+    try:
+        customer_id = int(customer_value.split(" - ")[0])
+        product_id = int(product_value.split(" - ")[0])
+        quantity = int(quantity)
+
+        if quantity <= 0:
+            return "Quantity must be greater than 0.", get_orders(), get_products()
+
+        product = conn.execute(
+            "SELECT product_name, price, stock FROM products WHERE product_id=?",
+            (product_id,)
+        ).fetchone()
+
+        if product is None:
+            return "Product not found.", get_orders(), get_products()
+
+        product_name, price, stock = product
+
+        if quantity > stock:
+            return f"Only {stock} units available.", get_orders(), get_products()
+
+        total_amount = price * quantity
+        today = str(date.today())
+
+        conn.execute(
+            """INSERT INTO orders(customer_id,order_date,status,total_amount)
+               VALUES (?,?,?,?)""",
+            (customer_id, today, "COMPLETED", total_amount)
+        )
+        order_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        conn.execute(
+            """INSERT INTO order_items(order_id,product_id,quantity,unit_price)
+               VALUES (?,?,?,?)""",
+            (order_id, product_id, quantity, price)
+        )
+
+        conn.execute(
+            "UPDATE products SET stock = stock - ? WHERE product_id = ?",
+            (quantity, product_id)
+        )
+
+        conn.execute(
+            """INSERT INTO payments(order_id,payment_date,amount,payment_status)
+               VALUES (?,?,?,?)""",
+            (order_id, today, total_amount, "PAID")
+        )
+
+        conn.commit()
+
+        message = (
+            f"Order #{order_id} placed successfully! "
+            f"{product_name} x {quantity} = ₹{total_amount:,.2f}"
+        )
+        return message, get_orders(), get_products()
+
+    except (ValueError, TypeError):
+        return "Enter a valid quantity.", get_orders(), get_products()
+    except sqlite3.Error as error:
+        conn.rollback()
+        return f"Database error: {error}", get_orders(), get_products()
+
+
+def refresh_dashboard():
+    revenue, orders, customers, products, avg = dashboard_metrics()
+    return (
+        revenue, orders, customers, products, avg,
+        monthly_revenue(), top_products(), customer_ranking(), sales_chart()
+    )
+
+
+with gr.Blocks(title="Sales Analytics System") as app:
+    gr.Markdown("# 🛒 Sales & Order Management Analytics System")
+
+    with gr.Tab("📊 Dashboard"):
+        refresh_btn = gr.Button("Refresh Dashboard")
+
+        with gr.Row():
+            revenue_box = gr.Textbox(label="Total Revenue", interactive=False)
+            orders_box = gr.Textbox(label="Total Orders", interactive=False)
+            customers_box = gr.Textbox(label="Customers", interactive=False)
+
+        with gr.Row():
+            products_box = gr.Textbox(label="Products", interactive=False)
+            avg_box = gr.Textbox(label="Average Order Value", interactive=False)
+
+        revenue_plot = gr.Plot(label="Monthly Revenue")
+        monthly_table = gr.Dataframe(value=monthly_revenue(), interactive=False)
+        top_table = gr.Dataframe(value=top_products(), interactive=False)
+        ranking_table = gr.Dataframe(value=customer_ranking(), interactive=False)
+
+        refresh_btn.click(
+            refresh_dashboard,
+            outputs=[revenue_box, orders_box, customers_box, products_box,
+                     avg_box, monthly_table, top_table, ranking_table, revenue_plot]
+        )
+
+    with gr.Tab("👤 Customers"):
+        customer_msg = gr.Textbox(label="Status", interactive=False)
+        with gr.Row():
+            customer_name = gr.Textbox(label="Name")
+            customer_email = gr.Textbox(label="Email")
+            customer_city = gr.Textbox(label="City")
+
+        add_customer_btn = gr.Button("Add Customer")
+        customers_table = gr.Dataframe(value=get_customers(), interactive=False)
+
+        add_customer_btn.click(
+            add_customer,
+            inputs=[customer_name, customer_email, customer_city],
+            outputs=[customer_msg, customers_table]
+        )
+
+    with gr.Tab("📦 Products"):
+        product_msg = gr.Textbox(label="Status", interactive=False)
+        with gr.Row():
+            product_name = gr.Textbox(label="Product Name")
+            product_category = gr.Textbox(label="Category")
+            product_price = gr.Number(label="Price")
+            product_stock = gr.Number(label="Stock", precision=0)
+
+        add_product_btn = gr.Button("Add Product")
+        products_table = gr.Dataframe(value=get_products(), interactive=False)
+
+        add_product_btn.click(
+            add_product,
+            inputs=[product_name, product_category, product_price, product_stock],
+            outputs=[product_msg, products_table]
+        )
+
+    with gr.Tab("🛍️ Place Order"):
+        load_choices_btn = gr.Button("Load / Refresh Customer & Product Lists")
+        customer_dropdown = gr.Dropdown(choices=customer_choices(), label="Customer")
+        product_dropdown = gr.Dropdown(choices=product_choices(), label="Product")
+        order_quantity = gr.Number(label="Quantity", value=1, precision=0)
+        place_order_btn = gr.Button("Place Order")
+        order_msg = gr.Textbox(label="Order Status", interactive=False)
+        orders_table = gr.Dataframe(value=get_orders(), interactive=False)
+        order_products_table = gr.Dataframe(value=get_products(), interactive=False)
+
+        load_choices_btn.click(
+            refresh_choices,
+            outputs=[customer_dropdown, product_dropdown]
+        )
+        place_order_btn.click(
+            place_order,
+            inputs=[customer_dropdown, product_dropdown, order_quantity],
+            outputs=[order_msg, orders_table, order_products_table]
+        )
+
+    with gr.Tab("💳 Payments"):
+        payment_refresh = gr.Button("Refresh Payments")
+        payment_table = gr.Dataframe(value=get_payments(), interactive=False)
+        payment_refresh.click(get_payments, outputs=payment_table)
+
+    with gr.Tab("📈 SQL Analytics"):
+        analytic_monthly = gr.Dataframe(value=monthly_revenue(), interactive=False)
+        analytic_products = gr.Dataframe(value=top_products(), interactive=False)
+        analytic_customers = gr.Dataframe(value=customer_ranking(), interactive=False)
+        analytics_refresh = gr.Button("Refresh Analytics")
+
+        analytics_refresh.click(
+            lambda: (monthly_revenue(), top_products(), customer_ranking()),
+            outputs=[analytic_monthly, analytic_products, analytic_customers]
+        )
+
+    app.load(
+        refresh_dashboard,
+        outputs=[revenue_box, orders_box, customers_box, products_box,
+                 avg_box, monthly_table, top_table, ranking_table, revenue_plot]
+    )
+
+
+if __name__ == "__main__":
+    app.launch()
