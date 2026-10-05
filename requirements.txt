@@ -1,3 +1,4 @@
-pandas
-matplotlib
-gradio
+pandas>=2.0
+matplotlib>=3.7
+gradio>=5.0
+pytest>=8.0
