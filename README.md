@@ -93,7 +93,7 @@ Order cancellation reverses the inventory change and marks the related payment a
 
 ## 📊 Demo Visuals
 
-The following data-driven previews are generated from the built-in demo dataset.
+The following data-driven dashboard previews are generated from the built-in demo dataset. They are lightweight repository visuals; the application itself is interactive when run locally.
 
 ![KPI dashboard preview](docs/assets/kpi-dashboard.svg)
 
@@ -243,6 +243,8 @@ The test suite covers:
 - Category revenue analytics
 - Top-product analytics
 
+The application also validates customer, product, quantity and stock inputs, and order creation/cancellation uses database transactions so partial updates are rolled back on failure.
+
 GitHub Actions runs the test suite automatically on pushes and pull requests.
 
 ## 🐳 Docker
@@ -258,17 +260,24 @@ The application can run outside Google Colab on Hugging Face Spaces, Docker-base
 
 ### Hugging Face Spaces
 
-The repository is Docker-ready for a free Hugging Face Docker Space:
-
-1. Create a new Space and select **Docker**.
-2. Connect/upload this repository.
-3. Keep the application port at `7860`.
-4. Set `DATABASE_PATH` if persistent storage is available.
-5. Verify the Gradio dashboard after the build.
-
-A live URL is not listed until the application is actually deployed; this avoids publishing a fake demo link.
+The repository includes a Dockerfile and is ready for Docker-compatible hosting. A live demo URL is not listed until the application is actually deployed; this avoids publishing a fake demo link.
 
 For production, use persistent storage or migrate the SQLite layer to PostgreSQL/MySQL.
+
+## 🧪 Sample Output
+
+The built-in demo dataset can be inspected without launching the UI:
+
+```text
+Demo dataset is ready.
+customers: 4 rows
+products: 5 rows
+orders: 4 rows
+order_items: 7 rows
+payments: 4 rows
+```
+
+The analytics layer produces monthly revenue, category revenue, top products, customer rankings, payment/order status analysis, inventory value and low-stock results. See the **Business Insights** section above for concrete findings from the same dataset.
 
 ## 📊 Business Questions Answered
 
@@ -314,12 +323,11 @@ sales-order-management-analytics/
 │   └── assets/
 │       ├── kpi-dashboard.svg
 │       ├── monthly-revenue.svg
-│       └── category-revenue.svg
-├── .github/
-│   └── workflows/
-│       └── tests.yml
-└── notebooks/
-    └── Sales_Order_Analytics_Colab_Project_.ipynb
+│       ├── category-revenue.svg
+│       └── top-products.svg
+└── .github/
+    └── workflows/
+        └── tests.yml
 ```
 
 ## 👨‍💻 Author
