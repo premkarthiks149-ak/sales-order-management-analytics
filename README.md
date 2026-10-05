@@ -1,6 +1,6 @@
 # Sales & Order Management Analytics System
 
-A modular Python + SQLite business application for managing customers, products, orders, payments and inventory, with SQL-driven analytics and an interactive Gradio dashboard.
+A portfolio-ready Python + SQL sales and order management application with a SQLite database, transaction-safe business workflows, analytics queries, and an interactive Gradio dashboard.
 
 ## 🚀 What This Project Demonstrates
 
@@ -19,6 +19,7 @@ This project is designed as an internship-ready portfolio application rather tha
 - GitHub Actions CI
 - Docker-ready deployment
 - Environment-based configuration
+- Reproducible built-in demo data
 
 ## ✨ Features
 
@@ -90,6 +91,32 @@ If a database error occurs, the transaction is rolled back so partial updates ar
 
 Order cancellation reverses the inventory change and marks the related payment as REFUNDED.
 
+## 📊 Demo Visuals
+
+The following data-driven previews are generated from the built-in demo dataset.
+
+![KPI dashboard preview](docs/assets/kpi-dashboard.svg)
+
+![Monthly revenue](docs/assets/monthly-revenue.svg)
+
+![Revenue by category](docs/assets/category-revenue.svg)
+
+![Top products](docs/assets/top-products.svg)
+
+## 💡 Business Insights from the Demo Dataset
+
+The built-in demo data contains 4 customers, 5 products and 4 completed orders.
+
+- **Completed revenue:** ₹108,300.
+- **Average order value:** ₹27,075.
+- **Electronics generated ₹106,000**, about **97.9% of total completed revenue**.
+- **Laptop revenue was ₹100,000**, about **92.3% of total completed revenue**.
+- **Laptop + Headphones generated ₹106,000**, about **97.9% of total completed revenue**.
+- January revenue was **₹55,500**, while February revenue was **₹52,800**.
+- The demo dataset shows a highly concentrated revenue mix, with laptops driving most sales value.
+
+These findings come from the same seed data used by the application.
+
 ## 🏗️ Architecture
 
 ```text
@@ -110,7 +137,6 @@ Order cancellation reverses the inventory change and marks the related payment a
 - `database.py` — SQLite connection, schema and seed data
 - `analytics.py` — SQL queries, Pandas analysis and charts
 - `tests/` — automated database tests
-- `notebooks/` — original Colab project
 - `.github/workflows/` — continuous integration
 - `Dockerfile` — container deployment
 - `.env.example` — environment configuration
@@ -141,6 +167,9 @@ Python 3.11+ · SQLite · SQL · Pandas · Matplotlib · Gradio · pytest · Git
 
 ## ▶️ Run Locally
 
+The project runs as a normal Python application and is **not dependent on Google Colab**.
+
+
 ```bash
 git clone https://github.com/premkarthiks149-ak/sales-order-management-analytics.git
 cd sales-order-management-analytics
@@ -164,6 +193,27 @@ python app.py
 ```
 
 The app uses port 7860 by default.
+
+### Demo data
+
+The database automatically creates the schema and seeds demo data on first run.
+
+To verify the demo dataset:
+
+```bash
+python scripts/seed_demo_data.py
+```
+
+Expected:
+
+```text
+Demo dataset is ready.
+customers: 4 rows
+products: 5 rows
+orders: 4 rows
+order_items: 7 rows
+payments: 4 rows
+```
 
 ## ⚙️ Configuration
 
@@ -197,6 +247,18 @@ docker run -p 7860:7860 sales-analytics
 ## ☁️ Deployment
 
 The application can run outside Google Colab on Hugging Face Spaces, Docker-based hosting, or other Python-compatible cloud platforms.
+
+### Hugging Face Spaces
+
+The repository is Docker-ready for a free Hugging Face Docker Space:
+
+1. Create a new Space and select **Docker**.
+2. Connect/upload this repository.
+3. Keep the application port at `7860`.
+4. Set `DATABASE_PATH` if persistent storage is available.
+5. Verify the Gradio dashboard after the build.
+
+A live URL is not listed until the application is actually deployed; this avoids publishing a fake demo link.
 
 For production, use persistent storage or migrate the SQLite layer to PostgreSQL/MySQL.
 
@@ -232,11 +294,19 @@ sales-order-management-analytics/
 ├── .gitignore
 ├── README.md
 ├── LICENSE
+├── scripts/
+│   └── seed_demo_data.py
 ├── tests/
-│   └── test_database.py
+│   ├── conftest.py
+│   ├── test_database.py
+│   └── test_analytics.py
 ├── docs/
 │   ├── architecture.md
-│   └── RESUME.md
+│   ├── RESUME.md
+│   └── assets/
+│       ├── kpi-dashboard.svg
+│       ├── monthly-revenue.svg
+│       └── category-revenue.svg
 ├── .github/
 │   └── workflows/
 │       └── tests.yml
