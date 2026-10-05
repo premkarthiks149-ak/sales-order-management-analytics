@@ -4,39 +4,56 @@ import matplotlib.pyplot as plt
 from database import conn
 
 
-def get_customers():
-    return pd.read_sql_query(
-        "SELECT * FROM customers ORDER BY customer_id", conn
-    )
+def get_customers(search=""):
+    query = """
+    SELECT * FROM customers
+    WHERE name LIKE ? OR email LIKE ? OR city LIKE ?
+    ORDER BY customer_id
+    """
+    term = f"%{(search or '').strip()}%"
+    return pd.read_sql_query(query, conn, params=(term, term, term))
 
 
-def get_products():
-    return pd.read_sql_query(
-        "SELECT * FROM products ORDER BY product_id", conn
-    )
+def get_products(search=""):
+    query = """
+    SELECT * FROM products
+    WHERE product_name LIKE ? OR category LIKE ?
+    ORDER BY product_id
+    """
+    term = f"%{(search or '').strip()}%"
+    return pd.read_sql_query(query, conn, params=(term, term))
 
 
-def get_orders():
+def get_orders(search=""):
     query = """
     SELECT o.order_id, c.name AS customer, o.order_date,
            o.status, o.total_amount
     FROM orders o
     JOIN customers c ON c.customer_id = o.customer_id
+    WHERE CAST(o.order_id AS TEXT) LIKE ?
+       OR c.name LIKE ?
+       OR o.status LIKE ?
     ORDER BY o.order_id DESC
     """
-    return pd.read_sql_query(query, conn)
+    term = f"%{(search or '').strip()}%"
+    return pd.read_sql_query(query, conn, params=(term, term, term))
 
 
-def get_payments():
+def get_payments(search=""):
     query = """
     SELECT p.payment_id, p.order_id, c.name AS customer,
            p.payment_date, p.amount, p.payment_status
     FROM payments p
     JOIN orders o ON o.order_id = p.order_id
     JOIN customers c ON c.customer_id = o.customer_id
+    WHERE CAST(p.payment_id AS TEXT) LIKE ?
+       OR CAST(p.order_id AS TEXT) LIKE ?
+       OR c.name LIKE ?
+       OR p.payment_status LIKE ?
     ORDER BY p.payment_id DESC
     """
-    return pd.read_sql_query(query, conn)
+    term = f"%{(search or '').strip()}%"
+    return pd.read_sql_query(query, conn, params=(term, term, term, term))
 
 
 def dashboard_metrics():
@@ -56,13 +73,18 @@ def dashboard_metrics():
         "SELECT COALESCE(SUM(price * stock),0) FROM products"
     ).fetchone()[0]
 
+    low_stock_count = conn.execute(
+        "SELECT COUNT(*) FROM products WHERE stock <= 10"
+    ).fetchone()[0]
+
     return (
         f"₹{total_revenue:,.2f}",
         str(total_orders),
         str(total_customers),
         str(total_products),
         f"₹{avg_order:,.2f}",
-        f"₹{inventory_value:,.2f}"
+        f"₹{inventory_value:,.2f}",
+        str(low_stock_count)
     )
 
 
@@ -186,7 +208,6 @@ def low_stock_products(threshold=10):
 def sales_chart():
     df = monthly_revenue()
     fig, ax = plt.subplots(figsize=(8, 4))
-
     if len(df) > 0:
         ax.bar(df["month"], df["revenue"])
         ax.set_xlabel("Month")
@@ -195,7 +216,6 @@ def sales_chart():
         ax.tick_params(axis="x", rotation=45)
     else:
         ax.text(0.5, 0.5, "No sales data", ha="center", va="center")
-
     plt.tight_layout()
     return fig
 
@@ -203,7 +223,6 @@ def sales_chart():
 def category_chart():
     df = category_revenue()
     fig, ax = plt.subplots(figsize=(8, 4))
-
     if len(df) > 0:
         ax.bar(df["category"], df["revenue"])
         ax.set_xlabel("Category")
@@ -212,6 +231,5 @@ def category_chart():
         ax.tick_params(axis="x", rotation=30)
     else:
         ax.text(0.5, 0.5, "No category data", ha="center", va="center")
-
     plt.tight_layout()
     return fig
