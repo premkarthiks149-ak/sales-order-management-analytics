@@ -116,3 +116,13 @@ def sales_chart():
 
     plt.tight_layout()
     return fig
+
+
+def low_stock_products(threshold=10):
+    query = """
+    SELECT product_id, product_name, category, stock, price
+    FROM products
+    WHERE stock <= ?
+    ORDER BY stock ASC
+    """
+    return pd.read_sql_query(query, conn, params=(threshold,))
