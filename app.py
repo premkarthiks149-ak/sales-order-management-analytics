@@ -126,7 +126,7 @@ def place_order(customer_value, product_value, quantity):
         conn.execute(
             """INSERT INTO orders(customer_id,order_date,status,total_amount)
                VALUES (?,?,?,?)""",
-            (customer_id, today, "COMPLETED", total_amount)
+            (customer_id, today, "PROCESSING", total_amount)
         )
         order_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
@@ -150,7 +150,7 @@ def place_order(customer_value, product_value, quantity):
         conn.commit()
 
         message = (
-            f"Order #{order_id} placed successfully! "
+            f"Order #{order_id} placed successfully! Status: PROCESSING. "
             f"{product_name} x {quantity} = ₹{total_amount:,.2f}"
         )
         return message, get_orders(), get_products()
