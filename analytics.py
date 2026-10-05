@@ -233,3 +233,16 @@ def category_chart():
         ax.text(0.5, 0.5, "No category data", ha="center", va="center")
     plt.tight_layout()
     return fig
+
+
+def order_details(order_id):
+    query = """
+    SELECT o.order_id, c.name AS customer, o.order_date, o.status,
+           o.total_amount, p.product_name, oi.quantity, oi.unit_price
+    FROM orders o
+    JOIN customers c ON c.customer_id = o.customer_id
+    JOIN order_items oi ON oi.order_id = o.order_id
+    JOIN products p ON p.product_id = oi.product_id
+    WHERE o.order_id = ?
+    """
+    return pd.read_sql_query(query, conn, params=(order_id,))
