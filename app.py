@@ -514,6 +514,12 @@ with gr.Blocks(title="Sales Analytics System") as app:
         order_management_table = gr.Dataframe(
             value=get_orders(), interactive=False
         )
+        cancel_products_table = gr.Dataframe(
+            value=get_products(), interactive=False
+        )
+        cancel_payment_table = gr.Dataframe(
+            value=get_payments(), interactive=False
+        )
 
         update_status_btn.click(
             update_order_status,
@@ -527,8 +533,8 @@ with gr.Blocks(title="Sales Analytics System") as app:
             outputs=[
                 order_management_msg,
                 order_management_table,
-                order_products_table,
-                payment_table
+                cancel_products_table,
+                cancel_payment_table
             ]
         )
 
