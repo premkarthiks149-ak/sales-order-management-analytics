@@ -7,7 +7,7 @@ from database import conn
 from analytics import (
     get_customers, get_products, get_orders, get_payments,
     dashboard_metrics, monthly_revenue, top_products,
-    customer_ranking, sales_chart
+    customer_ranking, sales_chart, low_stock_products
 )
 
 
@@ -162,7 +162,8 @@ def refresh_dashboard():
     revenue, orders, customers, products, avg = dashboard_metrics()
     return (
         revenue, orders, customers, products, avg,
-        monthly_revenue(), top_products(), customer_ranking(), sales_chart()
+        monthly_revenue(), top_products(), customer_ranking(),
+        low_stock_products(), sales_chart()
     )
 
 
@@ -186,10 +187,16 @@ with gr.Blocks(title="Sales Analytics System") as app:
         top_table = gr.Dataframe(value=top_products(), interactive=False)
         ranking_table = gr.Dataframe(value=customer_ranking(), interactive=False)
 
+        gr.Markdown("### ⚠️ Low Stock Products")
+        low_stock_table = gr.Dataframe(
+            value=low_stock_products(),
+            interactive=False
+        )
+
         refresh_btn.click(
             refresh_dashboard,
             outputs=[revenue_box, orders_box, customers_box, products_box,
-                     avg_box, monthly_table, top_table, ranking_table, revenue_plot]
+                     avg_box, monthly_table, top_table, ranking_table, low_stock_table, revenue_plot]
         )
 
     with gr.Tab("👤 Customers"):
