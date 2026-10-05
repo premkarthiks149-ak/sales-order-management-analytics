@@ -129,10 +129,6 @@ def seed_sample_data():
     ]
 
     conn.executemany(
-        "INSERT INTO payments(order_id,payment_date,amount,payment_status) VALUES (?,?,?,?,?)",
-        []
-    )
-    conn.executemany(
         "INSERT INTO payments(order_id,payment_date,amount,payment_status) VALUES (?,?,?,?)",
         payments
     )
