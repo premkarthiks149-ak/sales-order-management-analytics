@@ -1,7 +1,8 @@
+import os
 import sqlite3
 from datetime import date
 
-DB_NAME = "sales_analytics.db"
+DB_NAME = os.getenv("DATABASE_PATH", "sales_analytics.db")
 
 
 def get_connection():
