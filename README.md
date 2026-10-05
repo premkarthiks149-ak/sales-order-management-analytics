@@ -235,6 +235,14 @@ PORT=7860
 pytest -q
 ```
 
+The test suite covers:
+
+- Database initialization
+- SQLite foreign-key enforcement
+- Monthly revenue analytics
+- Category revenue analytics
+- Top-product analytics
+
 GitHub Actions runs the test suite automatically on pushes and pull requests.
 
 ## 🐳 Docker
