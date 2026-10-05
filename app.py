@@ -9,7 +9,7 @@ from analytics import (
     dashboard_metrics, monthly_revenue, daily_sales, category_revenue,
     top_products, customer_ranking, payment_status_analysis,
     order_status_analysis, inventory_analysis, low_stock_products,
-    sales_chart, category_chart
+    sales_chart, category_chart, order_details
 )
 
 
@@ -161,6 +161,135 @@ def place_order(customer_value, product_value, quantity):
     except sqlite3.Error as error:
         conn.rollback()
         return f"Database error: {error}", get_orders(), get_products()
+
+
+def update_order_status(order_id, new_status):
+    try:
+        order_id = int(order_id)
+    except (ValueError, TypeError):
+        return "Enter a valid order ID.", get_orders()
+
+    allowed = {"PROCESSING", "SHIPPED", "COMPLETED"}
+    if new_status not in allowed:
+        return "Invalid order status.", get_orders()
+
+    row = conn.execute(
+        "SELECT status FROM orders WHERE order_id=?",
+        (order_id,)
+    ).fetchone()
+
+    if row is None:
+        return "Order not found.", get_orders()
+
+    if row[0] == "CANCELLED":
+        return "Cancelled orders cannot be reopened.", get_orders()
+
+    try:
+        conn.execute(
+            "UPDATE orders SET status=? WHERE order_id=?",
+            (new_status, order_id)
+        )
+        conn.commit()
+        return f"Order #{order_id} status updated to {new_status}.", get_orders()
+    except sqlite3.Error as error:
+        conn.rollback()
+        return f"Database error: {error}", get_orders()
+
+
+def cancel_order(order_id):
+    try:
+        order_id = int(order_id)
+    except (ValueError, TypeError):
+        return "Enter a valid order ID.", get_orders(), get_products(), get_payments()
+
+    order = conn.execute(
+        "SELECT status, total_amount FROM orders WHERE order_id=?",
+        (order_id,)
+    ).fetchone()
+
+    if order is None:
+        return "Order not found.", get_orders(), get_products(), get_payments()
+
+    status, total_amount = order
+
+    if status == "CANCELLED":
+        return "Order is already cancelled.", get_orders(), get_products(), get_payments()
+
+    items = conn.execute(
+        "SELECT product_id, quantity FROM order_items WHERE order_id=?",
+        (order_id,)
+    ).fetchall()
+
+    try:
+        conn.execute("BEGIN")
+
+        for product_id, quantity in items:
+            conn.execute(
+                "UPDATE products SET stock = stock + ? WHERE product_id=?",
+                (quantity, product_id)
+            )
+
+        conn.execute(
+            "UPDATE orders SET status='CANCELLED' WHERE order_id=?",
+            (order_id,)
+        )
+
+        conn.execute(
+            """UPDATE payments
+               SET payment_status='REFUNDED'
+               WHERE order_id=? AND payment_status='PAID'""",
+            (order_id,)
+        )
+
+        conn.commit()
+
+        return (
+            f"Order #{order_id} cancelled. Stock restored and payment marked REFUNDED.",
+            get_orders(),
+            get_products(),
+            get_payments()
+        )
+    except sqlite3.Error as error:
+        conn.rollback()
+        return (
+            f"Database error: {error}",
+            get_orders(),
+            get_products(),
+            get_payments()
+        )
+
+
+def restock_product(product_id, quantity):
+    try:
+        product_id = int(product_id)
+        quantity = int(quantity)
+    except (ValueError, TypeError):
+        return "Enter valid product ID and quantity.", get_products()
+
+    if quantity <= 0:
+        return "Restock quantity must be greater than 0.", get_products()
+
+    product = conn.execute(
+        "SELECT product_name FROM products WHERE product_id=?",
+        (product_id,)
+    ).fetchone()
+
+    if product is None:
+        return "Product not found.", get_products()
+
+    try:
+        conn.execute(
+            "UPDATE products SET stock = stock + ? WHERE product_id=?",
+            (quantity, product_id)
+        )
+        conn.commit()
+        return (
+            f"{product[0]} restocked with {quantity} units.",
+            get_products()
+        )
+    except sqlite3.Error as error:
+        conn.rollback()
+        return f"Database error: {error}", get_products()
 
 
 def refresh_dashboard():
@@ -323,6 +452,22 @@ with gr.Blocks(title="Sales Analytics System") as app:
             outputs=products_table
         )
 
+    with gr.Tab("📦 Inventory"):
+        gr.Markdown("### Inventory Restock")
+        with gr.Row():
+            restock_product_id = gr.Number(label="Product ID", precision=0)
+            restock_quantity = gr.Number(label="Quantity", precision=0)
+
+        restock_btn = gr.Button("➕ Restock Product", variant="primary")
+        restock_msg = gr.Textbox(label="Inventory Status", interactive=False)
+        restock_table = gr.Dataframe(value=get_products(), interactive=False)
+
+        restock_btn.click(
+            restock_product,
+            inputs=[restock_product_id, restock_quantity],
+            outputs=[restock_msg, restock_table]
+        )
+
     with gr.Tab("🛍️ Place Order"):
         gr.Markdown("### Create a New Order")
         load_choices_btn = gr.Button("🔄 Load / Refresh Customer & Product Lists")
@@ -349,6 +494,57 @@ with gr.Blocks(title="Sales Analytics System") as app:
             place_order,
             inputs=[customer_dropdown, product_dropdown, order_quantity],
             outputs=[order_msg, orders_table, order_products_table]
+        )
+
+    with gr.Tab("📋 Order Management"):
+        gr.Markdown("### Order Lifecycle Management")
+
+        with gr.Row():
+            order_id_input = gr.Number(label="Order ID", precision=0)
+            order_status_dropdown = gr.Dropdown(
+                choices=["PROCESSING", "SHIPPED", "COMPLETED"],
+                label="New Status"
+            )
+
+        with gr.Row():
+            update_status_btn = gr.Button("🔄 Update Status", variant="primary")
+            cancel_order_btn = gr.Button("❌ Cancel Order")
+
+        order_management_msg = gr.Textbox(label="Order Status", interactive=False)
+        order_management_table = gr.Dataframe(
+            value=get_orders(), interactive=False
+        )
+
+        update_status_btn.click(
+            update_order_status,
+            inputs=[order_id_input, order_status_dropdown],
+            outputs=[order_management_msg, order_management_table]
+        )
+
+        cancel_order_btn.click(
+            cancel_order,
+            inputs=order_id_input,
+            outputs=[
+                order_management_msg,
+                order_management_table,
+                order_products_table,
+                payment_table
+            ]
+        )
+
+        gr.Markdown("### 🔍 View Order Details")
+        view_order_id = gr.Number(label="Order ID", precision=0)
+        view_order_btn = gr.Button("View Details")
+        order_detail_table = gr.Dataframe(
+            headers=["order_id", "customer", "order_date", "status",
+                     "total_amount", "product_name", "quantity", "unit_price"],
+            interactive=False
+        )
+
+        view_order_btn.click(
+            lambda order_id: order_details(int(order_id)),
+            inputs=view_order_id,
+            outputs=order_detail_table
         )
 
     with gr.Tab("💳 Payments"):
