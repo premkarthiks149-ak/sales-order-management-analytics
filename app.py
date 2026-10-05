@@ -164,9 +164,9 @@ def place_order(customer_value, product_value, quantity):
 
 
 def refresh_dashboard():
-    revenue, orders, customers, products, avg, inventory = dashboard_metrics()
+    revenue, orders, customers, products, avg, inventory, low_stock = dashboard_metrics()
     return (
-        revenue, orders, customers, products, avg, inventory,
+        revenue, orders, customers, products, avg, inventory, low_stock,
         monthly_revenue(), daily_sales(), category_revenue(),
         top_products(), customer_ranking(), payment_status_analysis(),
         order_status_analysis(), inventory_analysis(), low_stock_products(),
@@ -174,84 +174,111 @@ def refresh_dashboard():
     )
 
 
+def refresh_customer_table(search):
+    return get_customers(search)
+
+
+def refresh_product_table(search):
+    return get_products(search)
+
+
+def refresh_order_table(search):
+    return get_orders(search)
+
+
+def refresh_payment_table(search):
+    return get_payments(search)
+
+
 with gr.Blocks(title="Sales Analytics System") as app:
     gr.Markdown("# 🛒 Sales & Order Management Analytics System")
     gr.Markdown(
-        "A Python + SQLite sales management system with business analytics and inventory insights."
+        "### Business dashboard for sales, orders, customers, payments and inventory"
     )
 
     with gr.Tab("📊 Dashboard"):
-        refresh_btn = gr.Button("Refresh Dashboard")
+        refresh_btn = gr.Button("🔄 Refresh Dashboard", variant="primary")
 
         with gr.Row():
-            revenue_box = gr.Textbox(label="Total Revenue", interactive=False)
-            orders_box = gr.Textbox(label="Total Orders", interactive=False)
-            customers_box = gr.Textbox(label="Customers", interactive=False)
+            revenue_box = gr.Textbox(label="💰 Total Revenue", interactive=False)
+            orders_box = gr.Textbox(label="🧾 Total Orders", interactive=False)
+            customers_box = gr.Textbox(label="👥 Customers", interactive=False)
+            products_box = gr.Textbox(label="📦 Products", interactive=False)
 
         with gr.Row():
-            products_box = gr.Textbox(label="Products", interactive=False)
-            avg_box = gr.Textbox(label="Average Order Value", interactive=False)
-            inventory_box = gr.Textbox(label="Inventory Value", interactive=False)
+            avg_box = gr.Textbox(label="🛒 Average Order Value", interactive=False)
+            inventory_box = gr.Textbox(label="🏭 Inventory Value", interactive=False)
+            low_stock_box = gr.Textbox(label="⚠️ Low Stock Items", interactive=False)
 
+        gr.Markdown("## 📈 Sales Overview")
         with gr.Row():
             revenue_plot = gr.Plot(label="Monthly Revenue")
             category_plot = gr.Plot(label="Revenue by Category")
 
-        gr.Markdown("### 📅 Monthly Revenue")
-        monthly_table = gr.Dataframe(value=monthly_revenue(), interactive=False)
+        with gr.Accordion("📊 Detailed Analytics", open=True):
+            gr.Markdown("### 📅 Monthly Revenue")
+            monthly_table = gr.Dataframe(value=monthly_revenue(), interactive=False)
 
-        gr.Markdown("### 📆 Daily Sales")
-        daily_table = gr.Dataframe(value=daily_sales(), interactive=False)
+            gr.Markdown("### 📆 Daily Sales")
+            daily_table = gr.Dataframe(value=daily_sales(), interactive=False)
 
-        gr.Markdown("### 🏷️ Category Performance")
-        category_table = gr.Dataframe(value=category_revenue(), interactive=False)
+            gr.Markdown("### 🏷️ Category Performance")
+            category_table = gr.Dataframe(value=category_revenue(), interactive=False)
 
-        gr.Markdown("### 🏆 Top Products")
-        top_table = gr.Dataframe(value=top_products(), interactive=False)
+            gr.Markdown("### 🏆 Top Products")
+            top_table = gr.Dataframe(value=top_products(), interactive=False)
 
-        gr.Markdown("### 👑 Customer Ranking")
-        ranking_table = gr.Dataframe(value=customer_ranking(), interactive=False)
+            gr.Markdown("### 👑 Customer Ranking")
+            ranking_table = gr.Dataframe(value=customer_ranking(), interactive=False)
 
-        gr.Markdown("### 💳 Payment Status")
-        payment_status_table = gr.Dataframe(
-            value=payment_status_analysis(), interactive=False
-        )
+            gr.Markdown("### 💳 Payment Status")
+            payment_status_table = gr.Dataframe(
+                value=payment_status_analysis(), interactive=False
+            )
 
-        gr.Markdown("### 📦 Order Status")
-        order_status_table = gr.Dataframe(
-            value=order_status_analysis(), interactive=False
-        )
+            gr.Markdown("### 📦 Order Status")
+            order_status_table = gr.Dataframe(
+                value=order_status_analysis(), interactive=False
+            )
 
-        gr.Markdown("### 💰 Inventory Value by Product")
-        inventory_table = gr.Dataframe(
-            value=inventory_analysis(), interactive=False
-        )
+            gr.Markdown("### 💰 Inventory Value by Product")
+            inventory_table = gr.Dataframe(
+                value=inventory_analysis(), interactive=False
+            )
 
-        gr.Markdown("### ⚠️ Low Stock Products")
-        low_stock_table = gr.Dataframe(
-            value=low_stock_products(), interactive=False
-        )
+            gr.Markdown("### ⚠️ Low Stock Products")
+            low_stock_table = gr.Dataframe(
+                value=low_stock_products(), interactive=False
+            )
 
         refresh_btn.click(
             refresh_dashboard,
             outputs=[
                 revenue_box, orders_box, customers_box, products_box,
-                avg_box, inventory_box, monthly_table, daily_table,
-                category_table, top_table, ranking_table,
-                payment_status_table, order_status_table,
-                inventory_table, low_stock_table, revenue_plot,
-                category_plot
+                avg_box, inventory_box, low_stock_box, monthly_table,
+                daily_table, category_table, top_table, ranking_table,
+                payment_status_table, order_status_table, inventory_table,
+                low_stock_table, revenue_plot, category_plot
             ]
         )
 
     with gr.Tab("👤 Customers"):
+        gr.Markdown("### Customer Management")
+        with gr.Row():
+            customer_search = gr.Textbox(
+                label="🔎 Search Customers",
+                placeholder="Search by name, email or city..."
+            )
+            customer_search_btn = gr.Button("Search")
+
         customer_msg = gr.Textbox(label="Status", interactive=False)
+
         with gr.Row():
             customer_name = gr.Textbox(label="Name")
             customer_email = gr.Textbox(label="Email")
             customer_city = gr.Textbox(label="City")
 
-        add_customer_btn = gr.Button("Add Customer")
+        add_customer_btn = gr.Button("➕ Add Customer", variant="primary")
         customers_table = gr.Dataframe(value=get_customers(), interactive=False)
 
         add_customer_btn.click(
@@ -259,16 +286,30 @@ with gr.Blocks(title="Sales Analytics System") as app:
             inputs=[customer_name, customer_email, customer_city],
             outputs=[customer_msg, customers_table]
         )
+        customer_search_btn.click(
+            refresh_customer_table,
+            inputs=customer_search,
+            outputs=customers_table
+        )
 
     with gr.Tab("📦 Products"):
+        gr.Markdown("### Product & Inventory Management")
+        with gr.Row():
+            product_search = gr.Textbox(
+                label="🔎 Search Products",
+                placeholder="Search by product name or category..."
+            )
+            product_search_btn = gr.Button("Search")
+
         product_msg = gr.Textbox(label="Status", interactive=False)
+
         with gr.Row():
             product_name = gr.Textbox(label="Product Name")
             product_category = gr.Textbox(label="Category")
             product_price = gr.Number(label="Price")
             product_stock = gr.Number(label="Stock", precision=0)
 
-        add_product_btn = gr.Button("Add Product")
+        add_product_btn = gr.Button("➕ Add Product", variant="primary")
         products_table = gr.Dataframe(value=get_products(), interactive=False)
 
         add_product_btn.click(
@@ -276,13 +317,26 @@ with gr.Blocks(title="Sales Analytics System") as app:
             inputs=[product_name, product_category, product_price, product_stock],
             outputs=[product_msg, products_table]
         )
+        product_search_btn.click(
+            refresh_product_table,
+            inputs=product_search,
+            outputs=products_table
+        )
 
     with gr.Tab("🛍️ Place Order"):
-        load_choices_btn = gr.Button("Load / Refresh Customer & Product Lists")
-        customer_dropdown = gr.Dropdown(choices=customer_choices(), label="Customer")
-        product_dropdown = gr.Dropdown(choices=product_choices(), label="Product")
+        gr.Markdown("### Create a New Order")
+        load_choices_btn = gr.Button("🔄 Load / Refresh Customer & Product Lists")
+
+        with gr.Row():
+            customer_dropdown = gr.Dropdown(
+                choices=customer_choices(), label="Customer"
+            )
+            product_dropdown = gr.Dropdown(
+                choices=product_choices(), label="Product"
+            )
+
         order_quantity = gr.Number(label="Quantity", value=1, precision=0)
-        place_order_btn = gr.Button("Place Order")
+        place_order_btn = gr.Button("🛒 Place Order", variant="primary")
         order_msg = gr.Textbox(label="Order Status", interactive=False)
         orders_table = gr.Dataframe(value=get_orders(), interactive=False)
         order_products_table = gr.Dataframe(value=get_products(), interactive=False)
@@ -298,11 +352,28 @@ with gr.Blocks(title="Sales Analytics System") as app:
         )
 
     with gr.Tab("💳 Payments"):
-        payment_refresh = gr.Button("Refresh Payments")
+        gr.Markdown("### Payment Records")
+        with gr.Row():
+            payment_search = gr.Textbox(
+                label="🔎 Search Payments",
+                placeholder="Search by payment ID, order ID, customer or status..."
+            )
+            payment_search_btn = gr.Button("Search")
+
+        payment_refresh = gr.Button("🔄 Refresh Payments")
         payment_table = gr.Dataframe(value=get_payments(), interactive=False)
+
         payment_refresh.click(get_payments, outputs=payment_table)
+        payment_search_btn.click(
+            refresh_payment_table,
+            inputs=payment_search,
+            outputs=payment_table
+        )
 
     with gr.Tab("📈 SQL Analytics"):
+        gr.Markdown("### Query-Based Business Analytics")
+        analytics_refresh = gr.Button("🔄 Refresh Analytics", variant="primary")
+
         analytic_monthly = gr.Dataframe(value=monthly_revenue(), interactive=False)
         analytic_daily = gr.Dataframe(value=daily_sales(), interactive=False)
         analytic_category = gr.Dataframe(value=category_revenue(), interactive=False)
@@ -311,7 +382,6 @@ with gr.Blocks(title="Sales Analytics System") as app:
         analytic_payments = gr.Dataframe(
             value=payment_status_analysis(), interactive=False
         )
-        analytics_refresh = gr.Button("Refresh Analytics")
 
         analytics_refresh.click(
             lambda: (
@@ -332,8 +402,8 @@ with gr.Blocks(title="Sales Analytics System") as app:
         refresh_dashboard,
         outputs=[
             revenue_box, orders_box, customers_box, products_box,
-            avg_box, inventory_box, monthly_table, daily_table,
-            category_table, top_table, ranking_table,
+            avg_box, inventory_box, low_stock_box, monthly_table,
+            daily_table, category_table, top_table, ranking_table,
             payment_status_table, order_status_table, inventory_table,
             low_stock_table, revenue_plot, category_plot
         ]
