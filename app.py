@@ -6,8 +6,10 @@ import gradio as gr
 from database import conn
 from analytics import (
     get_customers, get_products, get_orders, get_payments,
-    dashboard_metrics, monthly_revenue, top_products,
-    customer_ranking, sales_chart, low_stock_products
+    dashboard_metrics, monthly_revenue, daily_sales, category_revenue,
+    top_products, customer_ranking, payment_status_analysis,
+    order_status_analysis, inventory_analysis, low_stock_products,
+    sales_chart, category_chart
 )
 
 
@@ -35,7 +37,10 @@ def add_customer(name, email, city):
 
 
 def add_product(product_name, category, price, stock):
-    if not product_name.strip():
+    product_name = (product_name or "").strip()
+    category = (category or "").strip()
+
+    if not product_name:
         return "Please enter product name.", get_products()
 
     try:
@@ -48,7 +53,7 @@ def add_product(product_name, category, price, stock):
         conn.execute(
             """INSERT INTO products(product_name,category,price,stock)
                VALUES (?,?,?,?)""",
-            (product_name.strip(), category.strip(), price, stock)
+            (product_name, category, price, stock)
         )
         conn.commit()
         return "Product added successfully!", get_products()
@@ -159,16 +164,21 @@ def place_order(customer_value, product_value, quantity):
 
 
 def refresh_dashboard():
-    revenue, orders, customers, products, avg = dashboard_metrics()
+    revenue, orders, customers, products, avg, inventory = dashboard_metrics()
     return (
-        revenue, orders, customers, products, avg,
-        monthly_revenue(), top_products(), customer_ranking(),
-        low_stock_products(), sales_chart()
+        revenue, orders, customers, products, avg, inventory,
+        monthly_revenue(), daily_sales(), category_revenue(),
+        top_products(), customer_ranking(), payment_status_analysis(),
+        order_status_analysis(), inventory_analysis(), low_stock_products(),
+        sales_chart(), category_chart()
     )
 
 
 with gr.Blocks(title="Sales Analytics System") as app:
     gr.Markdown("# 🛒 Sales & Order Management Analytics System")
+    gr.Markdown(
+        "A Python + SQLite sales management system with business analytics and inventory insights."
+    )
 
     with gr.Tab("📊 Dashboard"):
         refresh_btn = gr.Button("Refresh Dashboard")
@@ -181,22 +191,57 @@ with gr.Blocks(title="Sales Analytics System") as app:
         with gr.Row():
             products_box = gr.Textbox(label="Products", interactive=False)
             avg_box = gr.Textbox(label="Average Order Value", interactive=False)
+            inventory_box = gr.Textbox(label="Inventory Value", interactive=False)
 
-        revenue_plot = gr.Plot(label="Monthly Revenue")
+        with gr.Row():
+            revenue_plot = gr.Plot(label="Monthly Revenue")
+            category_plot = gr.Plot(label="Revenue by Category")
+
+        gr.Markdown("### 📅 Monthly Revenue")
         monthly_table = gr.Dataframe(value=monthly_revenue(), interactive=False)
+
+        gr.Markdown("### 📆 Daily Sales")
+        daily_table = gr.Dataframe(value=daily_sales(), interactive=False)
+
+        gr.Markdown("### 🏷️ Category Performance")
+        category_table = gr.Dataframe(value=category_revenue(), interactive=False)
+
+        gr.Markdown("### 🏆 Top Products")
         top_table = gr.Dataframe(value=top_products(), interactive=False)
+
+        gr.Markdown("### 👑 Customer Ranking")
         ranking_table = gr.Dataframe(value=customer_ranking(), interactive=False)
+
+        gr.Markdown("### 💳 Payment Status")
+        payment_status_table = gr.Dataframe(
+            value=payment_status_analysis(), interactive=False
+        )
+
+        gr.Markdown("### 📦 Order Status")
+        order_status_table = gr.Dataframe(
+            value=order_status_analysis(), interactive=False
+        )
+
+        gr.Markdown("### 💰 Inventory Value by Product")
+        inventory_table = gr.Dataframe(
+            value=inventory_analysis(), interactive=False
+        )
 
         gr.Markdown("### ⚠️ Low Stock Products")
         low_stock_table = gr.Dataframe(
-            value=low_stock_products(),
-            interactive=False
+            value=low_stock_products(), interactive=False
         )
 
         refresh_btn.click(
             refresh_dashboard,
-            outputs=[revenue_box, orders_box, customers_box, products_box,
-                     avg_box, monthly_table, top_table, ranking_table, low_stock_table, revenue_plot]
+            outputs=[
+                revenue_box, orders_box, customers_box, products_box,
+                avg_box, inventory_box, monthly_table, daily_table,
+                category_table, top_table, ranking_table,
+                payment_status_table, order_status_table,
+                inventory_table, low_stock_table, revenue_plot,
+                category_plot
+            ]
         )
 
     with gr.Tab("👤 Customers"):
@@ -259,19 +304,39 @@ with gr.Blocks(title="Sales Analytics System") as app:
 
     with gr.Tab("📈 SQL Analytics"):
         analytic_monthly = gr.Dataframe(value=monthly_revenue(), interactive=False)
+        analytic_daily = gr.Dataframe(value=daily_sales(), interactive=False)
+        analytic_category = gr.Dataframe(value=category_revenue(), interactive=False)
         analytic_products = gr.Dataframe(value=top_products(), interactive=False)
         analytic_customers = gr.Dataframe(value=customer_ranking(), interactive=False)
+        analytic_payments = gr.Dataframe(
+            value=payment_status_analysis(), interactive=False
+        )
         analytics_refresh = gr.Button("Refresh Analytics")
 
         analytics_refresh.click(
-            lambda: (monthly_revenue(), top_products(), customer_ranking()),
-            outputs=[analytic_monthly, analytic_products, analytic_customers]
+            lambda: (
+                monthly_revenue(),
+                daily_sales(),
+                category_revenue(),
+                top_products(),
+                customer_ranking(),
+                payment_status_analysis()
+            ),
+            outputs=[
+                analytic_monthly, analytic_daily, analytic_category,
+                analytic_products, analytic_customers, analytic_payments
+            ]
         )
 
     app.load(
         refresh_dashboard,
-        outputs=[revenue_box, orders_box, customers_box, products_box,
-                 avg_box, monthly_table, top_table, ranking_table, revenue_plot]
+        outputs=[
+            revenue_box, orders_box, customers_box, products_box,
+            avg_box, inventory_box, monthly_table, daily_table,
+            category_table, top_table, ranking_table,
+            payment_status_table, order_status_table, inventory_table,
+            low_stock_table, revenue_plot, category_plot
+        ]
     )
 
 
