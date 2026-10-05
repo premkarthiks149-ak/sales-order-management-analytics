@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from datetime import date
 
@@ -613,4 +614,5 @@ with gr.Blocks(title="Sales Analytics System") as app:
 
 
 if __name__ == "__main__":
-    app.launch()
+    port = int(os.getenv("PORT", "7860"))
+    app.launch(server_name="0.0.0.0", server_port=port)
