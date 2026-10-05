@@ -12,14 +12,21 @@ from analytics import (
 
 
 def add_customer(name, email, city):
-    if not name.strip():
+    name = (name or "").strip()
+    email = (email or "").strip().lower()
+    city = (city or "").strip()
+
+    if not name:
         return "Please enter customer name.", get_customers()
+
+    if not email or "@" not in email:
+        return "Please enter a valid email.", get_customers()
 
     try:
         conn.execute(
             """INSERT INTO customers(name,email,city,signup_date)
                VALUES (?,?,?,?)""",
-            (name.strip(), email.strip(), city.strip(), str(date.today()))
+            (name, email, city, str(date.today()))
         )
         conn.commit()
         return "Customer added successfully!", get_customers()
@@ -35,8 +42,8 @@ def add_product(product_name, category, price, stock):
         price = float(price)
         stock = int(stock)
 
-        if price < 0 or stock < 0:
-            return "Price and stock must be positive.", get_products()
+        if price <= 0 or stock < 0:
+            return "Price must be greater than 0 and stock cannot be negative.", get_products()
 
         conn.execute(
             """INSERT INTO products(product_name,category,price,stock)
@@ -76,7 +83,19 @@ def place_order(customer_value, product_value, quantity):
     try:
         customer_id = int(customer_value.split(" - ")[0])
         product_id = int(product_value.split(" - ")[0])
+
+        if quantity is None:
+            return "Enter a quantity.", get_orders(), get_products()
+
         quantity = int(quantity)
+
+        customer = conn.execute(
+            "SELECT customer_id FROM customers WHERE customer_id=?",
+            (customer_id,)
+        ).fetchone()
+
+        if customer is None:
+            return "Customer not found.", get_orders(), get_products()
 
         if quantity <= 0:
             return "Quantity must be greater than 0.", get_orders(), get_products()
@@ -96,6 +115,8 @@ def place_order(customer_value, product_value, quantity):
 
         total_amount = price * quantity
         today = str(date.today())
+
+        conn.execute("BEGIN")
 
         conn.execute(
             """INSERT INTO orders(customer_id,order_date,status,total_amount)
@@ -130,7 +151,8 @@ def place_order(customer_value, product_value, quantity):
         return message, get_orders(), get_products()
 
     except (ValueError, TypeError):
-        return "Enter a valid quantity.", get_orders(), get_products()
+        conn.rollback()
+        return "Enter valid order details.", get_orders(), get_products()
     except sqlite3.Error as error:
         conn.rollback()
         return f"Database error: {error}", get_orders(), get_products()
