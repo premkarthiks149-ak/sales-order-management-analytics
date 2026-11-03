@@ -221,6 +221,10 @@ Supported environment variables:
 
 - `DATABASE_PATH` — SQLite database file path
 - `PORT` — application port
+- `APP_USERNAME` — required login username for the hosted app
+- `APP_PASSWORD` — required login password for the hosted app
+
+**Security:** The app now requires deployment credentials. If `APP_USERNAME` or `APP_PASSWORD` is missing, login is denied (fail-closed). Never commit real credentials to GitHub. Set them in your hosting provider's environment-variable settings.
 
 Example:
 
@@ -258,9 +262,19 @@ docker run -p 7860:7860 sales-analytics
 
 The application can run outside Google Colab on Hugging Face Spaces, Docker-based hosting, or other Python-compatible cloud platforms.
 
-### Hugging Face Spaces
+### Render / Hugging Face Spaces
 
-The repository includes a Dockerfile and is ready for Docker-compatible hosting. A live demo URL is not listed until the application is actually deployed; this avoids publishing a fake demo link.
+The repository includes a Dockerfile and can be deployed on Docker-compatible hosting.
+
+For a Render Web Service, use:
+
+- **Build command:** `pip install -r requirements.txt`
+- **Start command:** `python app.py`
+- **Environment variables:** set `APP_USERNAME` and `APP_PASSWORD` in the host dashboard; optionally set `DATABASE_PATH` and `PORT`.
+
+Do not place passwords in this README or source code. The app's login is intended as a basic portfolio-demo gate, not enterprise-grade authentication. A public production business system should use managed authentication, authorization roles, HTTPS, audit logging, and a persistent database.
+
+A live demo URL is not listed until the application is actually deployed; this avoids publishing a fake demo link.
 
 For production, use persistent storage or migrate the SQLite layer to PostgreSQL/MySQL.
 
