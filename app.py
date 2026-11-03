@@ -320,7 +320,21 @@ def refresh_payment_table(search):
     return get_payments(search)
 
 
-with gr.Blocks(title="Sales Analytics System") as app:
+def authenticate(username, password):
+    """Require deployment-provided credentials; fail closed if not configured."""
+    expected_username = os.getenv("APP_USERNAME")
+    expected_password = os.getenv("APP_PASSWORD")
+
+    if not expected_username or not expected_password:
+        return False
+
+    return username == expected_username and password == expected_password
+
+
+with gr.Blocks(
+    title="Sales Analytics System",
+    auth=authenticate
+) as app:
     gr.Markdown("# 🛒 Sales & Order Management Analytics System")
     gr.Markdown(
         "### Business dashboard for sales, orders, customers, payments and inventory"
